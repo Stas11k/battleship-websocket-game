@@ -21,6 +21,11 @@ class GameManager {
         this.joinGame(socket);
         break;
 
+      case "PLACE_SHIP":
+      case "PLAYER_READY":
+        this.handleRoomMessage(socket, message);
+        break;
+
       default:
         socket.send(JSON.stringify({
           type: "ERROR",
@@ -28,6 +33,20 @@ class GameManager {
         }));
         break;
     }
+  }
+
+  handleRoomMessage(socket, message) {
+    const room = this.playerRooms.get(socket);
+
+    if (!room) {
+      socket.send(JSON.stringify({
+        type: "ERROR",
+        message: "You are not in a game room"
+      }));
+      return;
+    }
+
+    room.handleMessage(socket, message);
   }
 
   joinGame(socket) {
