@@ -1,6 +1,7 @@
 const {
   createPlayerState,
-  placeShip
+  placeShip,
+  removeShip
 } = require("./gameLogic");
 
 class GameRoom {
@@ -36,6 +37,10 @@ class GameRoom {
     switch (message.type) {
       case "PLACE_SHIP":
         this.handlePlaceShip(socket, message);
+        break;
+
+      case "REMOVE_SHIP":
+        this.handleRemoveShip(socket, message);
         break;
 
       case "PLAYER_READY":
@@ -101,6 +106,49 @@ class GameRoom {
         message: "All ships placed"
       });
     }
+  }
+
+  handleRemoveShip(socket, message) {
+    if (this.phase !== "PLACING_SHIPS") {
+      this.sendToPlayer(socket, {
+        type: "ERROR",
+        message: "Ships can be removed only during placement phase"
+      });
+      return;
+    }
+
+    const playerState = this.getPlayerState(socket);
+
+    if (!playerState) {
+      this.sendToPlayer(socket, {
+        type: "ERROR",
+        message: "Player is not in this room"
+      });
+      return;
+    }
+
+    const result = removeShip(
+      playerState,
+      message.row,
+      Number(message.col)
+    );
+
+    if (!result.success) {
+      this.sendToPlayer(socket, {
+        type: "ERROR",
+        message: result.message
+      });
+      return;
+    }
+
+    this.sendToPlayer(socket, {
+      type: "SHIP_REMOVED",
+      shipId: result.shipId,
+      size: result.size,
+      cells: result.cells,
+      ready: result.ready,
+      shipsPlaced: result.shipsPlaced
+    });
   }
 
   handlePlayerReady(socket) {

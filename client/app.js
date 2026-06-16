@@ -74,6 +74,18 @@ function handleMyBoardCellClick(row, col) {
     return;
   }
 
+  const cellValue = getBoardCellValue("me", row, col);
+
+  if (cellValue === "ship") {
+    sendMessage({
+      type: "REMOVE_SHIP",
+      row: row,
+      col: col
+    });
+
+    return;
+  }
+
   if (!selectedShipSize) {
     setGameStatus("Оберіть корабель");
     return;
@@ -115,6 +127,10 @@ function handleServerMessage(message) {
 
     case "SHIP_PLACED":
       handleShipPlaced(message);
+      break;
+
+    case "SHIP_REMOVED":
+      handleShipRemoved(message);
       break;
 
     case "PLAYER_READY":
@@ -174,6 +190,25 @@ function handleShipPlaced(message) {
 
   if (message.ready) {
     setGameStatus("Усі кораблі розміщено. Очікування суперника...");
+  }
+}
+
+function handleShipRemoved(message) {
+  for (const cell of message.cells) {
+    updateBoardCell("me", cell.row, cell.col, "empty", false);
+  }
+
+  refreshBoard("me");
+
+  const size = Number(message.size);
+
+  shipsLeft[size] += 1;
+
+  updateShipsLeftView();
+  setGameStatus("Корабель прибрано");
+
+  if (selectedShipSize === null) {
+    selectShip(size);
   }
 }
 

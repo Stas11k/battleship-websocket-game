@@ -22,6 +22,7 @@ class GameManager {
         break;
 
       case "PLACE_SHIP":
+      case "REMOVE_SHIP":
       case "PLAYER_READY":
         this.handleRoomMessage(socket, message);
         break;

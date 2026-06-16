@@ -96,6 +96,57 @@ function placeShip(playerState, row, col, size, direction) {
   };
 }
 
+function removeShip(playerState, row, col) {
+  if (!playerState.board[row] || !playerState.board[row][col]) {
+    return {
+      success: false,
+      message: "Invalid cell"
+    };
+  }
+
+  const cell = playerState.board[row][col];
+
+  if (!cell.hasShip || !cell.shipId) {
+    return {
+      success: false,
+      message: "There is no ship on this cell"
+    };
+  }
+
+  const ship = playerState.ships.find(function (currentShip) {
+    return currentShip.id === cell.shipId;
+  });
+
+  if (!ship) {
+    return {
+      success: false,
+      message: "Ship was not found"
+    };
+  }
+
+  for (const shipCell of ship.cells) {
+    playerState.board[shipCell.row][shipCell.col].hasShip = false;
+    playerState.board[shipCell.row][shipCell.col].hit = false;
+    playerState.board[shipCell.row][shipCell.col].shipId = null;
+  }
+
+  playerState.ships = playerState.ships.filter(function (currentShip) {
+    return currentShip.id !== ship.id;
+  });
+
+  playerState.shipsPlaced[ship.size] -= 1;
+  playerState.ready = false;
+
+  return {
+    success: true,
+    shipId: ship.id,
+    size: ship.size,
+    cells: ship.cells,
+    ready: playerState.ready,
+    shipsPlaced: playerState.shipsPlaced
+  };
+}
+
 function calculateShipCells(row, col, size, direction) {
   const rowIndex = ROWS.indexOf(row);
   const colIndex = COLS.indexOf(Number(col));
@@ -194,6 +245,7 @@ module.exports = {
   SHIPS_CONFIG,
   createPlayerState,
   placeShip,
+  removeShip,
   calculateShipCells,
   isFleetComplete
 };
