@@ -1,0 +1,153 @@
+:root {
+    --board-width: 551px;
+    --board-height: 400px;
+    --board-card-width: calc(var(--board-width) + 32px);
+    --header-accent: #4f6e91;
+    --header-accent-dark: #23364d;
+    --header-soft: #eaf4ff;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f3f5f7;
+    color: #222;
+}
+
+.game-header {
+    padding: 14px 24px 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 10px rgba(35, 54, 77, 0.06);
+    text-align: center;
+}
+
+.game-header h1 {
+    width: fit-content;
+    margin: 0 auto 8px;
+    padding: 0;
+    color: var(--header-accent-dark);
+    font-size: 34px;
+    line-height: 1.1;
+    letter-spacing: 0.3px;
+}
+
+.scoreboard {
+    width: fit-content;
+    max-width: calc(100% - 48px);
+    margin: 0 auto;
+    padding: 8px 14px;
+    border: 1px solid #d7e1ec;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(35, 54, 77, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-weight: bold;
+}
+
+.scoreboard span {
+    color: var(--header-accent-dark);
+}
+
+.scoreboard span:not(:last-child)::after {
+    content: "";
+    display: inline-block;
+    width: 1px;
+    height: 14px;
+    margin-left: 16px;
+    vertical-align: -2px;
+    background: #c7d4e2;
+}
+
+.game-layout {
+    display: grid;
+    grid-template-columns: var(--board-card-width) var(--board-card-width);
+    gap: 24px;
+    padding: 24px;
+    justify-content: center;
+}
+
+.board-section {
+    width: var(--board-card-width);
+    box-sizing: border-box;
+    padding: 16px;
+    border-radius: 12px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.board-section h2 {
+    margin-top: 0;
+    color: var(--header-accent-dark);
+}
+
+.hint {
+    max-width: 100%;
+    font-size: 14px;
+    line-height: 1.35;
+    color: #666;
+}
+
+#myBoard,
+#enemyBoard {
+    width: var(--board-width);
+    height: var(--board-height);
+    margin: 0 auto;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+#myBoard .wdr-grid-cell,
+#enemyBoard .wdr-grid-cell {
+    box-sizing: border-box;
+    padding: 0;
+    font-size: 14px;
+    text-align: center;
+    vertical-align: middle;
+    overflow: hidden;
+}
+
+#myBoard .battle-cell,
+#enemyBoard .battle-cell {
+    border: 1px solid #b8c7d8 !important;
+    box-sizing: border-box;
+}
+
+#myBoard .battle-cell-empty,
+#enemyBoard .battle-cell-empty {
+    background: #eaf4ff !important;
+}
+
+#myBoard .battle-cell-ship,
+#enemyBoard .battle-cell-ship {
+    background: #4f6e91 !important;
+}
+
+#myBoard .battle-cell-hit,
+#enemyBoard .battle-cell-hit {
+    background: #f28b82 !important;
+}
+
+#myBoard .battle-cell-miss,
+#enemyBoard .battle-cell-miss {
+    background: #9aa8b8 !important;
+}
+
+#myBoard .battle-board-corner-cell,
+#enemyBoard .battle-board-corner-cell {
+    color: transparent !important;
+    text-shadow: none !important;
+}
+
+#myBoard .wdr-ui-element,
+#enemyBoard .wdr-ui-element {
+    font-family: Arial, sans-serif !important;
+}
+
+#myBoard .wdr-grid-layout div,
+#enemyBoard .wdr-grid-layout div {
+    user-select: none;
+}

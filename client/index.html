@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Морський бій — WebDataRocks</title>
+
+    <link href="https://cdn.webdatarocks.com/latest/webdatarocks.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+
+    <script src="https://cdn.webdatarocks.com/latest/webdatarocks.js"></script>
+</head>
+
+<body>
+    <header class="game-header">
+        <h1>Морський бій</h1>
+
+        <div class="scoreboard">
+            <span>Гравець: -</span>
+            <span>Очікування...</span>
+            <span>Дошки готові</span>
+        </div>
+    </header>
+
+    <main class="game-layout">
+        <section class="board-section">
+            <h2>Моє поле</h2>
+            <p class="hint">Тут буде розміщення ваших кораблів.</p>
+            <div id="myBoard"></div>
+        </section>
+
+        <section class="board-section">
+            <h2>Поле суперника</h2>
+            <p class="hint">Тут буде поле для атак.</p>
+            <div id="enemyBoard"></div>
+        </section>
+    </main>
+
+    <script src="boardData.js"></script>
+    <script src="webdatarocksBoard.js"></script>
+</body>
+
+</html>
