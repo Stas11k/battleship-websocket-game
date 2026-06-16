@@ -11,6 +11,10 @@
     <link rel="stylesheet" href="style.css" />
 
     <script src="https://cdn.webdatarocks.com/latest/webdatarocks.js"></script>
+    <script src="boardData.js"></script>
+    <script src="webdatarocksBoard.js"></script>
+    <script src="websocket.js"></script>
+    <script src="app.js"></script>
 </head>
 
 <body>
@@ -18,28 +22,46 @@
         <h1>Морський бій</h1>
 
         <div class="scoreboard">
-            <span>Гравець: -</span>
-            <span>Очікування...</span>
-            <span>Дошки готові</span>
+            <span id="playerInfo">Гравець: -</span>
+            <span id="gameStatus">Очікування...</span>
+            <span id="connectionStatus">Не підключено</span>
         </div>
     </header>
 
     <main class="game-layout">
         <section class="board-section">
             <h2>Моє поле</h2>
-            <p class="hint">Тут буде розміщення ваших кораблів.</p>
             <div id="myBoard"></div>
+        </section>
+
+        <section class="placement-panel">
+            <h2>Розміщення кораблів</h2>
+
+            <div class="ship-buttons">
+                <button class="ship-button" data-size="4">4-палубний</button>
+                <button class="ship-button" data-size="3">3-палубний</button>
+                <button class="ship-button" data-size="2">2-палубний</button>
+                <button class="ship-button" data-size="1">1-палубний</button>
+            </div>
+
+            <button id="directionButton" class="direction-button">
+                Напрямок: горизонтально
+            </button>
+
+            <div class="ships-left">
+                <p>4-палубні: <span id="shipsLeft4">1</span></p>
+                <p>3-палубні: <span id="shipsLeft3">2</span></p>
+                <p>2-палубні: <span id="shipsLeft2">3</span></p>
+                <p>1-палубні: <span id="shipsLeft1">4</span></p>
+            </div>
         </section>
 
         <section class="board-section">
             <h2>Поле суперника</h2>
-            <p class="hint">Тут буде поле для атак.</p>
             <div id="enemyBoard"></div>
         </section>
     </main>
 
-    <script src="boardData.js"></script>
-    <script src="webdatarocksBoard.js"></script>
 </body>
 
 </html>

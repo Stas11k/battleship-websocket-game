@@ -219,7 +219,7 @@ function addMyBoardClickHandler() {
       return;
     }
 
-    console.log("My board cell:", coordinate.row, coordinate.col);
+    handleMyBoardCellClick(coordinate.row, coordinate.col);
   });
 }
 
@@ -237,6 +237,6 @@ function addEnemyBoardClickHandler() {
       return;
     }
 
-    console.log("Enemy board cell:", coordinate.row, coordinate.col);
+    handleEnemyBoardCellClick(coordinate.row, coordinate.col);
   });
 }

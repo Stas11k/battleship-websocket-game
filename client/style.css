@@ -64,14 +64,15 @@ body {
 
 .game-layout {
     display: grid;
-    grid-template-columns: var(--board-card-width) var(--board-card-width);
-    gap: 24px;
+    grid-template-columns: var(--board-card-width) 220px var(--board-card-width);
+    gap: 20px;
     padding: 24px;
     justify-content: center;
+    align-items: start;
 }
 
-.board-section {
-    width: var(--board-card-width);
+.board-section,
+.placement-panel {
     box-sizing: border-box;
     padding: 16px;
     border-radius: 12px;
@@ -79,16 +80,14 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.board-section h2 {
-    margin-top: 0;
-    color: var(--header-accent-dark);
+.board-section {
+    width: var(--board-card-width);
 }
 
-.hint {
-    max-width: 100%;
-    font-size: 14px;
-    line-height: 1.35;
-    color: #666;
+.board-section h2,
+.placement-panel h2 {
+    margin-top: 0;
+    color: var(--header-accent-dark);
 }
 
 #myBoard,
@@ -150,4 +149,52 @@ body {
 #myBoard .wdr-grid-layout div,
 #enemyBoard .wdr-grid-layout div {
     user-select: none;
+}
+
+.placement-panel {
+    width: 220px;
+}
+
+.ship-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ship-button,
+.direction-button {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #b8c7d8;
+    border-radius: 8px;
+    background: #f7fbff;
+    color: var(--header-accent-dark);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.ship-button:hover,
+.direction-button:hover {
+    background: #eaf4ff;
+}
+
+.ship-button.active {
+    background: var(--header-accent);
+    color: white;
+    border-color: var(--header-accent);
+}
+
+.direction-button {
+    margin-top: 12px;
+}
+
+.ships-left {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid #d7e1ec;
+    font-size: 14px;
+}
+
+.ships-left p {
+    margin: 6px 0;
 }
