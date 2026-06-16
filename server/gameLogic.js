@@ -147,6 +147,76 @@ function removeShip(playerState, row, col) {
   };
 }
 
+function checkShot(playerState, row, col) {
+  if (!playerState.board[row] || !playerState.board[row][col]) {
+    return {
+      success: false,
+      message: "Invalid shot cell"
+    };
+  }
+
+  const cell = playerState.board[row][col];
+
+  if (cell.hit) {
+    return {
+      success: false,
+      message: "This cell was already attacked"
+    };
+  }
+
+  cell.hit = true;
+
+  if (!cell.hasShip) {
+    return {
+      success: true,
+      result: "miss",
+      row: row,
+      col: Number(col),
+      gameOver: false
+    };
+  }
+
+  const ship = playerState.ships.find(function (currentShip) {
+    return currentShip.id === cell.shipId;
+  });
+
+  const sunk = isShipSunk(playerState, ship);
+
+  if (sunk) {
+    ship.sunk = true;
+  }
+
+  return {
+    success: true,
+    result: "hit",
+    row: row,
+    col: Number(col),
+    shipId: ship ? ship.id : null,
+    sunk: sunk,
+    gameOver: areAllShipsSunk(playerState)
+  };
+}
+
+function isShipSunk(playerState, ship) {
+  if (!ship) {
+    return false;
+  }
+
+  return ship.cells.every(function (cell) {
+    return playerState.board[cell.row][cell.col].hit;
+  });
+}
+
+function areAllShipsSunk(playerState) {
+  if (playerState.ships.length === 0) {
+    return false;
+  }
+
+  return playerState.ships.every(function (ship) {
+    return isShipSunk(playerState, ship);
+  });
+}
+
 function calculateShipCells(row, col, size, direction) {
   const rowIndex = ROWS.indexOf(row);
   const colIndex = COLS.indexOf(Number(col));
@@ -246,6 +316,7 @@ module.exports = {
   createPlayerState,
   placeShip,
   removeShip,
+  checkShot,
   calculateShipCells,
   isFleetComplete
 };

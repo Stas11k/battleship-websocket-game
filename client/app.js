@@ -10,6 +10,7 @@ let playerNumber = null;
 let selectedShipSize = null;
 let selectedDirection = "horizontal";
 let gamePhase = "WAITING_FOR_CONNECTION";
+let currentTurn = null;
 
 let shipsLeft = {
   4: 1,
@@ -106,7 +107,27 @@ function handleMyBoardCellClick(row, col) {
 }
 
 function handleEnemyBoardCellClick(row, col) {
-  console.log("Enemy board click:", row, col);
+  if (gamePhase !== "BATTLE") {
+    return;
+  }
+
+  if (currentTurn !== playerNumber) {
+    setGameStatus("Зараз хід суперника");
+    return;
+  }
+
+  const cellValue = getBoardCellValue("enemy", row, col);
+
+  if (cellValue === "hit" || cellValue === "miss") {
+    setGameStatus("Ви вже стріляли в цю клітинку");
+    return;
+  }
+
+  sendMessage({
+    type: "SHOT",
+    row: row,
+    col: col
+  });
 }
 
 function handleServerMessage(message) {
@@ -138,7 +159,19 @@ function handleServerMessage(message) {
       break;
 
     case "GAME_STARTED":
-      handleGameStarted();
+      handleGameStarted(message);
+      break;
+
+    case "SHOT_RESULT":
+      handleShotResult(message);
+      break;
+
+    case "ENEMY_SHOT":
+      handleEnemyShot(message);
+      break;
+
+    case "GAME_OVER":
+      handleGameOver(message);
       break;
 
     case "ERROR":
@@ -216,9 +249,51 @@ function handlePlayerReady() {
   setGameStatus("Усі кораблі розміщено. Очікування суперника...");
 }
 
-function handleGameStarted() {
+function handleGameStarted(message) {
   gamePhase = "BATTLE";
-  setGameStatus("Гру розпочато");
+  currentTurn = message.currentTurn;
+
+  clearActiveShipButton();
+
+  if (currentTurn === playerNumber) {
+    setGameStatus("Гру розпочато. Ваш хід");
+  } else {
+    setGameStatus("Гру розпочато. Хід суперника");
+  }
+}
+
+function handleShotResult(message) {
+  currentTurn = message.currentTurn;
+
+  updateBoardCell("enemy", message.row, message.col, message.result);
+
+  if (message.result === "hit") {
+    setGameStatus("Попадання! Ваш хід ще раз");
+  } else {
+    setGameStatus("Промах. Хід суперника");
+  }
+}
+
+function handleEnemyShot(message) {
+  currentTurn = message.currentTurn;
+
+  updateBoardCell("me", message.row, message.col, message.result);
+
+  if (message.result === "hit") {
+    setGameStatus("У ваш корабель влучили. Суперник ходить ще раз");
+  } else {
+    setGameStatus("Суперник промахнувся. Ваш хід");
+  }
+}
+
+function handleGameOver(message) {
+  gamePhase = "GAME_OVER";
+
+  if (message.result === "win") {
+    setGameStatus("Ви перемогли!");
+  } else {
+    setGameStatus("Ви програли!");
+  }
 }
 
 function updateShipsLeftView() {
