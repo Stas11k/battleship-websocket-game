@@ -1,370 +1,423 @@
 const ROWS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 const COLS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-const SHIPS_CONFIG = {
-  4: 1,
-  3: 2,
-  2: 3,
-  1: 4
-};
+const SHIP_STATUSES = new Set(["ship", "hit"]);
 
 function createBoard() {
-  const board = {};
+  const board = [];
 
   for (const row of ROWS) {
-    board[row] = {};
-
     for (const col of COLS) {
-      board[row][col] = {
-        hasShip: false,
-        hit: false,
-        shipId: null,
-        sunkZone: false
-      };
+      board.push({
+        row: row,
+        col: col,
+        status: "empty"
+      });
     }
   }
 
   return board;
 }
 
-function createPlayerState() {
-  return {
-    board: createBoard(),
-    ships: [],
-    shipsPlaced: {
-      4: 0,
-      3: 0,
-      2: 0,
-      1: 0
-    },
-    ready: false
-  };
-}
+function placeShip(board, row, col, size, direction) {
+  const shipCells = calculateShipCells(row, Number(col), Number(size), direction);
 
-function placeShip(playerState, row, col, size, direction) {
-  if (!SHIPS_CONFIG[size]) {
+  if (!shipCells.length) {
     return {
       success: false,
-      message: "Invalid ship size"
+      message: "Неможливо визначити клітинки корабля"
     };
   }
 
-  if (playerState.shipsPlaced[size] >= SHIPS_CONFIG[size]) {
-    return {
-      success: false,
-      message: "No ships of this size left"
-    };
-  }
+  for (const shipCell of shipCells) {
+    const cell = findCell(board, shipCell.row, shipCell.col);
 
-  const cells = calculateShipCells(row, col, size, direction);
+    if (!cell) {
+      return {
+        success: false,
+        message: "Корабель виходить за межі поля"
+      };
+    }
 
-  if (!cells) {
-    return {
-      success: false,
-      message: "Invalid ship position"
-    };
-  }
-
-  if (!canPlaceShip(playerState.board, cells)) {
-    return {
-      success: false,
-      message: "Ship cannot be placed here"
-    };
-  }
-
-  const shipId = `ship-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-
-  for (const cell of cells) {
-    playerState.board[cell.row][cell.col].hasShip = true;
-    playerState.board[cell.row][cell.col].shipId = shipId;
-  }
-
-  playerState.ships.push({
-    id: shipId,
-    size: size,
-    cells: cells,
-    sunk: false
-  });
-
-  playerState.shipsPlaced[size] += 1;
-  playerState.ready = isFleetComplete(playerState);
-
-  return {
-    success: true,
-    shipId: shipId,
-    cells: cells,
-    ready: playerState.ready
-  };
-}
-
-function removeShip(playerState, row, col) {
-  if (!playerState.board[row] || !playerState.board[row][col]) {
-    return {
-      success: false,
-      message: "Invalid cell"
-    };
-  }
-
-  const cell = playerState.board[row][col];
-
-  if (!cell.hasShip || !cell.shipId) {
-    return {
-      success: false,
-      message: "There is no ship on this cell"
-    };
-  }
-
-  const ship = playerState.ships.find(function (currentShip) {
-    return currentShip.id === cell.shipId;
-  });
-
-  if (!ship) {
-    return {
-      success: false,
-      message: "Ship was not found"
-    };
-  }
-
-  for (const shipCell of ship.cells) {
-    playerState.board[shipCell.row][shipCell.col].hasShip = false;
-    playerState.board[shipCell.row][shipCell.col].hit = false;
-    playerState.board[shipCell.row][shipCell.col].shipId = null;
-    playerState.board[shipCell.row][shipCell.col].sunkZone = false;
-  }
-
-  playerState.ships = playerState.ships.filter(function (currentShip) {
-    return currentShip.id !== ship.id;
-  });
-
-  playerState.shipsPlaced[ship.size] -= 1;
-  playerState.ready = false;
-
-  return {
-    success: true,
-    shipId: ship.id,
-    size: ship.size,
-    cells: ship.cells,
-    ready: playerState.ready,
-    shipsPlaced: playerState.shipsPlaced
-  };
-}
-
-function checkShot(playerState, row, col) {
-  if (!playerState.board[row] || !playerState.board[row][col]) {
-    return {
-      success: false,
-      message: "Invalid shot cell"
-    };
-  }
-
-  const cell = playerState.board[row][col];
-
-  if (cell.hit || cell.sunkZone) {
-    return {
-      success: false,
-      message: "This cell was already attacked"
-    };
-  }
-
-  cell.hit = true;
-
-  if (!cell.hasShip) {
-    return {
-      success: true,
-      result: "miss",
-      row: row,
-      col: Number(col),
-      sunk: false,
-      sunkCells: [],
-      zoneCells: [],
-      gameOver: false
-    };
-  }
-
-  const ship = playerState.ships.find(function (currentShip) {
-    return currentShip.id === cell.shipId;
-  });
-
-  const sunk = isShipSunk(playerState, ship);
-
-  let sunkCells = [];
-  let zoneCells = [];
-
-  if (sunk && ship) {
-    ship.sunk = true;
-    sunkCells = markShipAsSunk(ship);
-    zoneCells = markSunkShipZone(playerState, ship);
-  }
-
-  return {
-    success: true,
-    result: "hit",
-    row: row,
-    col: Number(col),
-    shipId: ship ? ship.id : null,
-    sunk: sunk,
-    sunkCells: sunkCells,
-    zoneCells: zoneCells,
-    gameOver: areAllShipsSunk(playerState)
-  };
-}
-
-function markShipAsSunk(ship) {
-  return ship.cells.map(function (cell) {
-    return {
-      row: cell.row,
-      col: cell.col
-    };
-  });
-}
-
-function markSunkShipZone(playerState, ship) {
-  const zoneMap = new Map();
-
-  for (const shipCell of ship.cells) {
-    const neighbours = getNeighbourCells(shipCell.row, shipCell.col);
-
-    for (const neighbour of neighbours) {
-      const key = `${neighbour.row}-${neighbour.col}`;
-      const boardCell = playerState.board[neighbour.row][neighbour.col];
-
-      if (boardCell.hasShip) {
-        continue;
-      }
-
-      boardCell.hit = true;
-      boardCell.sunkZone = true;
-
-      zoneMap.set(key, {
-        row: neighbour.row,
-        col: neighbour.col
-      });
+    if (cell.status !== "empty") {
+      return {
+        success: false,
+        message: "Корабель перетинається з іншим кораблем"
+      };
     }
   }
 
-  return Array.from(zoneMap.values());
-}
-
-function isShipSunk(playerState, ship) {
-  if (!ship) {
-    return false;
+  for (const shipCell of shipCells) {
+    if (hasShipNearby(board, shipCell.row, shipCell.col, shipCells)) {
+      return {
+        success: false,
+        message: "Кораблі не можуть торкатися один одного навіть кутами"
+      };
+    }
   }
 
-  return ship.cells.every(function (cell) {
-    return playerState.board[cell.row][cell.col].hit;
-  });
-}
-
-function areAllShipsSunk(playerState) {
-  if (playerState.ships.length === 0) {
-    return false;
+  for (const shipCell of shipCells) {
+    const cell = findCell(board, shipCell.row, shipCell.col);
+    cell.status = "ship";
   }
 
-  return playerState.ships.every(function (ship) {
-    return isShipSunk(playerState, ship);
-  });
+  return {
+    success: true,
+    cells: shipCells
+  };
+}
+
+function removeShip(board, row, col) {
+  const cell = findCell(board, row, Number(col));
+
+  if (!cell || cell.status !== "ship") {
+    return {
+      success: false,
+      message: "На цій клітинці немає корабля"
+    };
+  }
+
+  const shipCells = findWholeShip(board, row, Number(col));
+
+  for (const shipCell of shipCells) {
+    const boardCell = findCell(board, shipCell.row, shipCell.col);
+
+    if (boardCell) {
+      boardCell.status = "empty";
+    }
+  }
+
+  return {
+    success: true,
+    cells: shipCells,
+    size: shipCells.length
+  };
 }
 
 function calculateShipCells(row, col, size, direction) {
   const rowIndex = ROWS.indexOf(row);
-  const colIndex = COLS.indexOf(Number(col));
 
-  if (rowIndex === -1 || colIndex === -1) {
-    return null;
+  if (rowIndex === -1 || col < 1 || col > 10 || size < 1 || size > 4) {
+    return [];
   }
 
   const cells = [];
 
   for (let i = 0; i < size; i++) {
-    let nextRowIndex = rowIndex;
-    let nextColIndex = colIndex;
-
-    if (direction === "horizontal") {
-      nextColIndex += i;
-    } else if (direction === "vertical") {
-      nextRowIndex += i;
-    } else {
-      return null;
-    }
-
-    if (nextRowIndex < 0 || nextRowIndex >= ROWS.length) {
-      return null;
-    }
-
-    if (nextColIndex < 0 || nextColIndex >= COLS.length) {
-      return null;
-    }
+    const nextRowIndex = direction === "vertical" ? rowIndex + i : rowIndex;
+    const nextCol = direction === "vertical" ? col : col + i;
+    const nextRow = ROWS[nextRowIndex];
 
     cells.push({
-      row: ROWS[nextRowIndex],
-      col: COLS[nextColIndex]
+      row: nextRow,
+      col: nextCol
     });
   }
 
   return cells;
 }
 
-function canPlaceShip(board, cells) {
-  for (const cell of cells) {
-    if (board[cell.row][cell.col].hasShip) {
-      return false;
-    }
+function hasShipNearby(board, row, col, currentShipCells) {
+  const rowIndex = ROWS.indexOf(row);
+  const currentShipKeys = new Set(currentShipCells.map(function (cell) {
+    return createCellKey(cell.row, cell.col);
+  }));
 
-    const neighbours = getNeighbourCells(cell.row, cell.col);
+  for (let rowOffset = -1; rowOffset <= 1; rowOffset++) {
+    for (let colOffset = -1; colOffset <= 1; colOffset++) {
+      const neighborRow = ROWS[rowIndex + rowOffset];
+      const neighborCol = Number(col) + colOffset;
 
-    for (const neighbour of neighbours) {
-      if (board[neighbour.row][neighbour.col].hasShip) {
-        return false;
+      if (!neighborRow || neighborCol < 1 || neighborCol > 10) {
+        continue;
+      }
+
+      if (currentShipKeys.has(createCellKey(neighborRow, neighborCol))) {
+        continue;
+      }
+
+      const neighborCell = findCell(board, neighborRow, neighborCol);
+
+      if (neighborCell && neighborCell.status === "ship") {
+        return true;
       }
     }
   }
 
-  return true;
+  return false;
 }
 
-function getNeighbourCells(row, col) {
-  const rowIndex = ROWS.indexOf(row);
-  const colIndex = COLS.indexOf(Number(col));
+function createCellKey(row, col) {
+  return `${row}-${col}`;
+}
 
-  const neighbours = [];
+function checkShot(board, row, col) {
+  const cell = findCell(board, row, col);
+
+  if (!cell) {
+    return {
+      result: "miss",
+      sunkCells: [],
+      zoneCells: []
+    };
+  }
+
+  if (cell.status === "hit" || cell.status === "sunk" || cell.status === "miss" || cell.status === "sunk-zone") {
+    return {
+      result: "already",
+      sunkCells: [],
+      zoneCells: []
+    };
+  }
+
+  if (cell.status === "ship") {
+    cell.status = "hit";
+
+    const shipCells = findWholeShip(board, row, Number(col));
+    const isSunk = shipCells.every(function (shipCell) {
+      const boardCell = findCell(board, shipCell.row, shipCell.col);
+      return boardCell && boardCell.status === "hit";
+    });
+
+    if (!isSunk) {
+      return {
+        result: "hit",
+        sunkCells: [],
+        zoneCells: []
+      };
+    }
+
+    markShipAsSunk(board, shipCells);
+    const zoneCells = markSunkShipZone(board, shipCells);
+
+    return {
+      result: "sunk",
+      sunkCells: shipCells,
+      zoneCells: zoneCells
+    };
+  }
+
+  cell.status = "miss";
+
+  return {
+    result: "miss",
+    sunkCells: [],
+    zoneCells: []
+  };
+}
+
+function findWholeShip(board, row, col) {
+  const horizontalCells = collectLineCells(board, row, col, 0, -1)
+    .reverse()
+    .concat([{ row: row, col: Number(col) }], collectLineCells(board, row, col, 0, 1));
+
+  if (horizontalCells.length > 1) {
+    return horizontalCells;
+  }
+
+  const verticalCells = collectLineCells(board, row, col, -1, 0)
+    .reverse()
+    .concat([{ row: row, col: Number(col) }], collectLineCells(board, row, col, 1, 0));
+
+  return verticalCells;
+}
+
+function collectLineCells(board, row, col, rowStep, colStep) {
+  const cells = [];
+  let rowIndex = ROWS.indexOf(row) + rowStep;
+  let nextCol = Number(col) + colStep;
+
+  while (rowIndex >= 0 && rowIndex < ROWS.length && nextCol >= 1 && nextCol <= 10) {
+    const nextRow = ROWS[rowIndex];
+    const cell = findCell(board, nextRow, nextCol);
+
+    if (!cell || !SHIP_STATUSES.has(cell.status)) {
+      break;
+    }
+
+    cells.push({
+      row: nextRow,
+      col: nextCol
+    });
+
+    rowIndex += rowStep;
+    nextCol += colStep;
+  }
+
+  return cells;
+}
+
+function markShipAsSunk(board, shipCells) {
+  for (const shipCell of shipCells) {
+    const boardCell = findCell(board, shipCell.row, shipCell.col);
+
+    if (boardCell) {
+      boardCell.status = "sunk";
+    }
+  }
+}
+
+function markSunkShipZone(board, shipCells) {
+  const zoneCells = [];
+  const shipKeys = new Set(shipCells.map(function (shipCell) {
+    return createCellKey(shipCell.row, shipCell.col);
+  }));
+  const zoneKeys = new Set();
+
+  for (const shipCell of shipCells) {
+    const rowIndex = ROWS.indexOf(shipCell.row);
+
+    for (let rowOffset = -1; rowOffset <= 1; rowOffset++) {
+      for (let colOffset = -1; colOffset <= 1; colOffset++) {
+        const neighborRow = ROWS[rowIndex + rowOffset];
+        const neighborCol = Number(shipCell.col) + colOffset;
+        const key = createCellKey(neighborRow, neighborCol);
+
+        if (!neighborRow || neighborCol < 1 || neighborCol > 10) {
+          continue;
+        }
+
+        if (shipKeys.has(key) || zoneKeys.has(key)) {
+          continue;
+        }
+
+        const neighborCell = findCell(board, neighborRow, neighborCol);
+
+        if (!neighborCell || neighborCell.status !== "empty") {
+          continue;
+        }
+
+        neighborCell.status = "sunk-zone";
+        zoneKeys.add(key);
+        zoneCells.push({
+          row: neighborRow,
+          col: neighborCol
+        });
+      }
+    }
+  }
+
+  return zoneCells;
+}
+
+
+function scanArea(board, row, col) {
+  const centerRowIndex = ROWS.indexOf(row);
+  const centerCol = Number(col);
+  const cells = [];
+
+  if (centerRowIndex === -1 || centerCol < 1 || centerCol > 10) {
+    return cells;
+  }
 
   for (let rowOffset = -1; rowOffset <= 1; rowOffset++) {
     for (let colOffset = -1; colOffset <= 1; colOffset++) {
-      const nextRowIndex = rowIndex + rowOffset;
-      const nextColIndex = colIndex + colOffset;
+      const nextRow = ROWS[centerRowIndex + rowOffset];
+      const nextCol = centerCol + colOffset;
 
-      if (nextRowIndex < 0 || nextRowIndex >= ROWS.length) {
+      if (!nextRow || nextCol < 1 || nextCol > 10) {
         continue;
       }
 
-      if (nextColIndex < 0 || nextColIndex >= COLS.length) {
-        continue;
-      }
+      const cell = findCell(board, nextRow, nextCol);
 
-      neighbours.push({
-        row: ROWS[nextRowIndex],
-        col: COLS[nextColIndex]
+      if (cell && cell.status === "ship") {
+        cells.push({
+          row: nextRow,
+          col: nextCol
+        });
+      }
+    }
+  }
+
+  return cells;
+}
+
+function fireTorpedoBomber(board, row) {
+  const pathCells = [];
+
+  if (ROWS.indexOf(row) === -1) {
+    return {
+      result: "miss",
+      pathCells: [],
+      sunkCells: [],
+      zoneCells: []
+    };
+  }
+
+  for (const col of COLS) {
+    const cell = findCell(board, row, col);
+
+    if (!cell) {
+      continue;
+    }
+
+    if (cell.status === "ship") {
+      const shotResult = checkShot(board, row, col);
+
+      pathCells.push({
+        row: row,
+        col: col,
+        result: shotResult.result
+      });
+
+      return {
+        result: shotResult.result,
+        pathCells: pathCells,
+        sunkCells: shotResult.sunkCells || [],
+        zoneCells: shotResult.zoneCells || []
+      };
+    }
+
+    if (cell.status === "empty") {
+      cell.status = "miss";
+      pathCells.push({
+        row: row,
+        col: col,
+        result: "miss"
       });
     }
   }
 
-  return neighbours;
+  return {
+    result: "miss",
+    pathCells: pathCells,
+    sunkCells: [],
+    zoneCells: []
+  };
 }
 
-function isFleetComplete(playerState) {
-  return Object.keys(SHIPS_CONFIG).every(function (size) {
-    return playerState.shipsPlaced[size] === SHIPS_CONFIG[size];
+function findCell(board, row, col) {
+  return board.find(function (cell) {
+    return cell.row === row && cell.col === Number(col);
+  });
+}
+
+function getShipsForClient(board) {
+  return board
+    .filter(function (cell) {
+      return cell.status === "ship";
+    })
+    .map(function (cell) {
+      return {
+        row: cell.row,
+        col: cell.col
+      };
+    });
+}
+
+function isAllShipsDestroyed(board) {
+  return board.every(function (cell) {
+    return cell.status !== "ship";
   });
 }
 
 module.exports = {
-  ROWS,
-  COLS,
-  SHIPS_CONFIG,
-  createPlayerState,
+  createBoard,
   placeShip,
   removeShip,
   checkShot,
-  calculateShipCells,
-  isFleetComplete
+  scanArea,
+  fireTorpedoBomber,
+  getShipsForClient,
+  isAllShipsDestroyed
 };

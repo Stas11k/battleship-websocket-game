@@ -1,365 +1,500 @@
 const {
-  createPlayerState,
+  createBoard,
   placeShip,
   removeShip,
-  checkShot
+  checkShot,
+  scanArea,
+  fireTorpedoBomber,
+  isAllShipsDestroyed
 } = require("./gameLogic");
+
+let roomCounter = 1;
+const FLEET_TEMPLATE = {
+  4: 1,
+  3: 2,
+  2: 3,
+  1: 4
+};
+
+const TOTAL_SHIPS = Object.values(FLEET_TEMPLATE).reduce(function (total, count) {
+  return total + count;
+}, 0);
+const START_SCANNER_USES = 1;
+const START_TORPEDO_BOMBERS = 2;
+const TURN_DURATION_MS = 25000;
 
 class GameRoom {
   constructor() {
-    this.id = this.createRoomId();
-
-    this.player1 = null;
-    this.player2 = null;
-
-    this.player1State = createPlayerState();
-    this.player2State = createPlayerState();
-
+    this.id = `room-${roomCounter++}`;
+    this.players = [];
+    this.currentTurn = null;
+    this.turnDeadline = null;
+    this.turnTimeout = null;
     this.phase = "WAITING_FOR_PLAYERS";
-    this.currentTurn = 1;
   }
 
   addPlayer(socket) {
-    if (!this.player1) {
-      this.player1 = socket;
-      socket.roomPlayerNumber = 1;
-      return 1;
-    }
+    const player = {
+      id: `player${this.players.length + 1}`,
+      socket: socket,
+      board: createBoard(),
+      shipsPlaced: 0,
+      remainingShips: createFleet(),
+      scannerUsesLeft: START_SCANNER_USES,
+      torpedoBombersLeft: START_TORPEDO_BOMBERS,
+      ready: false
+    };
 
-    if (!this.player2) {
-      this.player2 = socket;
-      socket.roomPlayerNumber = 2;
-      return 2;
-    }
+    this.players.push(player);
 
-    return null;
-  }
-
-  handleMessage(socket, message) {
-    switch (message.type) {
-      case "PLACE_SHIP":
-        this.handlePlaceShip(socket, message);
-        break;
-
-      case "REMOVE_SHIP":
-        this.handleRemoveShip(socket, message);
-        break;
-
-      case "PLAYER_READY":
-        this.handlePlayerReady(socket);
-        break;
-
-      case "SHOT":
-        this.handleShot(socket, message);
-        break;
-
-      default:
-        this.sendToPlayer(socket, {
-          type: "ERROR",
-          message: "Unknown room message type"
-        });
-        break;
-    }
-  }
-
-  handlePlaceShip(socket, message) {
-    if (this.phase !== "PLACING_SHIPS") {
-      this.sendToPlayer(socket, {
-        type: "ERROR",
-        message: "Ships can be placed only during placement phase"
-      });
-      return;
-    }
-
-    const playerState = this.getPlayerState(socket);
-
-    if (!playerState) {
-      this.sendToPlayer(socket, {
-        type: "ERROR",
-        message: "Player is not in this room"
-      });
-      return;
-    }
-
-    const result = placeShip(
-      playerState,
-      message.row,
-      Number(message.col),
-      Number(message.size),
-      message.direction
-    );
-
-    if (!result.success) {
-      this.sendToPlayer(socket, {
-        type: "ERROR",
-        message: result.message
-      });
-      return;
-    }
-
-    this.sendToPlayer(socket, {
-      type: "SHIP_PLACED",
-      shipId: result.shipId,
-      cells: result.cells,
-      size: Number(message.size),
-      ready: result.ready,
-      shipsPlaced: playerState.shipsPlaced
-    });
-
-    if (result.ready) {
-      this.sendToPlayer(socket, {
-        type: "PLAYER_READY",
-        message: "All ships placed"
-      });
-    }
-  }
-
-  handleRemoveShip(socket, message) {
-    if (this.phase !== "PLACING_SHIPS") {
-      this.sendToPlayer(socket, {
-        type: "ERROR",
-        message: "Ships can be removed only during placement phase"
-      });
-      return;
-    }
-
-    const playerState = this.getPlayerState(socket);
-
-    if (!playerState) {
-      this.sendToPlayer(socket, {
-        type: "ERROR",
-        message: "Player is not in this room"
-      });
-      return;
-    }
-
-    const result = removeShip(
-      playerState,
-      message.row,
-      Number(message.col)
-    );
-
-    if (!result.success) {
-      this.sendToPlayer(socket, {
-        type: "ERROR",
-        message: result.message
-      });
-      return;
-    }
-
-    this.sendToPlayer(socket, {
-      type: "SHIP_REMOVED",
-      shipId: result.shipId,
-      size: result.size,
-      cells: result.cells,
-      ready: result.ready,
-      shipsPlaced: result.shipsPlaced
-    });
-  }
-
-  handlePlayerReady(socket) {
-    const playerState = this.getPlayerState(socket);
-
-    if (!playerState) {
-      return;
-    }
-
-    playerState.ready = true;
-
-    if (this.player1State.ready && this.player2State.ready) {
-      this.startBattlePhase();
-    }
-  }
-
-  handleShot(socket, message) {
-    if (this.phase !== "BATTLE") {
-      this.sendToPlayer(socket, {
-        type: "ERROR",
-        message: "Shots are allowed only during battle"
-      });
-      return;
-    }
-
-    const shooterNumber = socket.roomPlayerNumber;
-
-    if (shooterNumber !== this.currentTurn) {
-      this.sendToPlayer(socket, {
-        type: "ERROR",
-        message: "It is not your turn"
-      });
-      return;
-    }
-
-    const enemyState = this.getEnemyState(socket);
-    const enemyPlayer = this.getEnemyPlayer(socket);
-
-    if (!enemyState || !enemyPlayer) {
-      this.sendToPlayer(socket, {
-        type: "ERROR",
-        message: "Enemy player was not found"
-      });
-      return;
-    }
-
-    const result = checkShot(
-      enemyState,
-      message.row,
-      Number(message.col)
-    );
-
-    if (!result.success) {
-      this.sendToPlayer(socket, {
-        type: "ERROR",
-        message: result.message
-      });
-      return;
-    }
-
-    const nextTurn = result.result === "hit"
-      ? shooterNumber
-      : this.getOpponentNumber(shooterNumber);
-
-    this.currentTurn = nextTurn;
-
-    this.sendToPlayer(socket, {
-      type: "SHOT_RESULT",
-      row: result.row,
-      col: result.col,
-      result: result.result,
-      sunk: result.sunk || false,
-      sunkCells: result.sunkCells || [],
-      zoneCells: result.zoneCells || [],
-      currentTurn: this.currentTurn
-    });
-
-    this.sendToPlayer(enemyPlayer, {
-      type: "ENEMY_SHOT",
-      row: result.row,
-      col: result.col,
-      result: result.result,
-      sunk: result.sunk || false,
-      sunkCells: result.sunkCells || [],
-      zoneCells: result.zoneCells || [],
-      currentTurn: this.currentTurn
-    });
-
-    if (result.gameOver) {
-      this.phase = "GAME_OVER";
-
-      this.sendToPlayer(socket, {
-        type: "GAME_OVER",
-        result: "win"
-      });
-
-      this.sendToPlayer(enemyPlayer, {
-        type: "GAME_OVER",
-        result: "lose"
-      });
-    }
-  }
-
-  startPlacementPhase() {
-    this.phase = "PLACING_SHIPS";
-
-    this.broadcast({
-      type: "PLACING_STARTED"
-    });
-  }
-
-  startBattlePhase() {
-    this.phase = "BATTLE";
-    this.currentTurn = 1;
-
-    this.broadcast({
-      type: "GAME_STARTED",
-      currentTurn: this.currentTurn
-    });
-  }
-
-  getPlayerState(socket) {
-    if (socket === this.player1) {
-      return this.player1State;
-    }
-
-    if (socket === this.player2) {
-      return this.player2State;
-    }
-
-    return null;
-  }
-
-  getEnemyState(socket) {
-    if (socket === this.player1) {
-      return this.player2State;
-    }
-
-    if (socket === this.player2) {
-      return this.player1State;
-    }
-
-    return null;
-  }
-
-  getEnemyPlayer(socket) {
-    if (socket === this.player1) {
-      return this.player2;
-    }
-
-    if (socket === this.player2) {
-      return this.player1;
-    }
-
-    return null;
-  }
-
-  getOpponentNumber(playerNumber) {
-    return playerNumber === 1 ? 2 : 1;
-  }
-
-  removePlayer(socket) {
-    if (this.player1 === socket) {
-      this.player1 = null;
-    }
-
-    if (this.player2 === socket) {
-      this.player2 = null;
-    }
-
-    this.phase = "WAITING_FOR_PLAYERS";
-
-    this.broadcast({
-      type: "PLAYER_DISCONNECTED"
-    });
+    return player;
   }
 
   isFull() {
-    return this.player1 !== null && this.player2 !== null;
+    return this.players.length === 2;
   }
 
-  isEmpty() {
-    return this.player1 === null && this.player2 === null;
+  startGame() {
+    this.phase = "PLACING_SHIPS";
+
+    for (const player of this.players) {
+      player.socket.send(JSON.stringify({
+        type: "PLACING_STARTED",
+        gameId: this.id,
+        playerId: player.id,
+        shipsPlaced: player.shipsPlaced,
+        shipsRequired: TOTAL_SHIPS,
+        remainingShips: player.remainingShips
+      }));
+    }
   }
 
-  broadcast(message) {
-    this.sendToPlayer(this.player1, message);
-    this.sendToPlayer(this.player2, message);
-  }
+  handlePlaceShip(playerId, row, col, size, direction) {
+    if (this.phase !== "PLACING_SHIPS") {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: "Зараз не фаза розміщення кораблів"
+      });
 
-  sendToPlayer(player, message) {
+      return;
+    }
+
+    const player = this.getPlayer(playerId);
+
     if (!player) {
       return;
     }
 
-    if (player.readyState !== 1) {
+    if (player.ready) {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: "Усі кораблі вже розміщено. Очікуйте суперника"
+      });
+
       return;
     }
 
-    player.send(JSON.stringify(message));
+    const shipSize = Number(size);
+    const shipDirection = direction === "vertical" ? "vertical" : "horizontal";
+
+    if (!player.remainingShips[shipSize]) {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: "Кораблів такого розміру більше не залишилось"
+      });
+
+      return;
+    }
+
+    const result = placeShip(player.board, row, Number(col), shipSize, shipDirection);
+
+    if (!result.success) {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: result.message
+      });
+
+      return;
+    }
+
+    player.remainingShips[shipSize]--;
+    player.shipsPlaced += 1;
+
+    player.socket.send(JSON.stringify({
+      type: "SHIP_PLACED",
+      cells: result.cells,
+      size: shipSize,
+      direction: shipDirection,
+      shipsPlaced: player.shipsPlaced,
+      shipsRequired: TOTAL_SHIPS,
+      remainingShips: player.remainingShips
+    }));
+
+    if (isFleetPlaced(player.remainingShips)) {
+      player.ready = true;
+
+      player.socket.send(JSON.stringify({
+        type: "PLAYER_READY",
+        message: "Ви розмістили всі кораблі. Очікування суперника..."
+      }));
+    }
+
+    if (this.players.length === 2 && this.players.every(function (player) {
+      return player.ready;
+    })) {
+      this.startBattle();
+    }
   }
 
-  createRoomId() {
-    return `room-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  handleRemoveShip(playerId, row, col) {
+    if (this.phase !== "PLACING_SHIPS") {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: "Зараз не фаза розміщення кораблів"
+      });
+
+      return;
+    }
+
+    const player = this.getPlayer(playerId);
+
+    if (!player) {
+      return;
+    }
+
+    const result = removeShip(player.board, row, Number(col));
+
+    if (!result.success) {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: result.message
+      });
+
+      return;
+    }
+
+    player.remainingShips[result.size] += 1;
+    player.shipsPlaced = Math.max(0, player.shipsPlaced - 1);
+    player.ready = false;
+
+    player.socket.send(JSON.stringify({
+      type: "SHIP_REMOVED",
+      cells: result.cells,
+      size: result.size,
+      shipsPlaced: player.shipsPlaced,
+      shipsRequired: TOTAL_SHIPS,
+      remainingShips: player.remainingShips
+    }));
+  }
+
+  startBattle() {
+    this.phase = "PLAYING";
+    this.setCurrentTurn("player1");
+
+    for (const player of this.players) {
+      player.socket.send(JSON.stringify({
+        type: "GAME_STARTED",
+        gameId: this.id,
+        currentTurn: this.currentTurn,
+        turnDeadline: this.turnDeadline,
+        scannerUsesLeft: player.scannerUsesLeft,
+        torpedoBombersLeft: player.torpedoBombersLeft
+      }));
+    }
+  }
+
+  handleShot(playerId, row, col) {
+    if (this.phase !== "PLAYING") {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: "Спочатку потрібно розмістити кораблі"
+      });
+
+      return;
+    }
+
+    if (playerId !== this.currentTurn) {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: "Зараз не ваш хід"
+      });
+
+      return;
+    }
+
+    const player = this.getPlayer(playerId);
+    const enemy = this.getEnemy(playerId);
+
+    if (!player || !enemy) {
+      return;
+    }
+
+    const shotResult = checkShot(enemy.board, row, Number(col));
+
+    if (shotResult.result === "already") {
+      player.socket.send(JSON.stringify({
+        type: "ERROR",
+        message: "У цю клітинку вже стріляли"
+      }));
+
+      return;
+    }
+
+    const nextTurn = shotResult.result === "hit" || shotResult.result === "sunk" ? player.id : enemy.id;
+    this.setCurrentTurn(nextTurn);
+
+    player.socket.send(JSON.stringify({
+      type: "SHOT_RESULT",
+      row: row,
+      col: Number(col),
+      result: shotResult.result,
+      sunkCells: shotResult.sunkCells || [],
+      zoneCells: shotResult.zoneCells || [],
+      nextTurn: nextTurn,
+      turnDeadline: this.turnDeadline
+    }));
+
+    enemy.socket.send(JSON.stringify({
+      type: "ENEMY_SHOT",
+      row: row,
+      col: Number(col),
+      result: shotResult.result,
+      sunkCells: shotResult.sunkCells || [],
+      zoneCells: shotResult.zoneCells || [],
+      nextTurn: nextTurn,
+      turnDeadline: this.turnDeadline
+    }));
+
+    if (isAllShipsDestroyed(enemy.board)) {
+      this.clearTurnTimer();
+      this.broadcast({
+        type: "GAME_OVER",
+        winner: player.id
+      });
+    }
+  }
+
+
+  handleScanArea(playerId, row, col) {
+    if (!this.canUseBattleAction(playerId)) {
+      return;
+    }
+
+    const player = this.getPlayer(playerId);
+    const enemy = this.getEnemy(playerId);
+
+    if (!player || !enemy) {
+      return;
+    }
+
+    if (player.scannerUsesLeft <= 0) {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: "Сканер уже використано"
+      });
+
+      return;
+    }
+
+    const scannedCells = scanArea(enemy.board, row, Number(col));
+    player.scannerUsesLeft--;
+
+    const nextTurn = enemy.id;
+    this.setCurrentTurn(nextTurn);
+
+    player.socket.send(JSON.stringify({
+      type: "SCAN_RESULT",
+      row: row,
+      col: Number(col),
+      cells: scannedCells,
+      scannerUsesLeft: player.scannerUsesLeft,
+      nextTurn: nextTurn,
+      turnDeadline: this.turnDeadline
+    }));
+
+    enemy.socket.send(JSON.stringify({
+      type: "ENEMY_SCAN_USED",
+      row: row,
+      col: Number(col),
+      nextTurn: nextTurn,
+      turnDeadline: this.turnDeadline
+    }));
+  }
+
+  handleTorpedoBomber(playerId, row) {
+    if (!this.canUseBattleAction(playerId)) {
+      return;
+    }
+
+    const player = this.getPlayer(playerId);
+    const enemy = this.getEnemy(playerId);
+
+    if (!player || !enemy) {
+      return;
+    }
+
+    if (player.torpedoBombersLeft <= 0) {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: "Торпедоносців більше немає"
+      });
+
+      return;
+    }
+
+    const torpedoResult = fireTorpedoBomber(enemy.board, row);
+    player.torpedoBombersLeft--;
+
+    const nextTurn = enemy.id;
+    this.setCurrentTurn(nextTurn);
+
+    player.socket.send(JSON.stringify({
+      type: "TORPEDO_RESULT",
+      row: row,
+      result: torpedoResult.result,
+      pathCells: torpedoResult.pathCells || [],
+      sunkCells: torpedoResult.sunkCells || [],
+      zoneCells: torpedoResult.zoneCells || [],
+      torpedoBombersLeft: player.torpedoBombersLeft,
+      nextTurn: nextTurn,
+      turnDeadline: this.turnDeadline
+    }));
+
+    enemy.socket.send(JSON.stringify({
+      type: "ENEMY_TORPEDO_USED",
+      row: row,
+      result: torpedoResult.result,
+      pathCells: torpedoResult.pathCells || [],
+      sunkCells: torpedoResult.sunkCells || [],
+      zoneCells: torpedoResult.zoneCells || [],
+      nextTurn: nextTurn,
+      turnDeadline: this.turnDeadline
+    }));
+
+    if (isAllShipsDestroyed(enemy.board)) {
+      this.clearTurnTimer();
+      this.broadcast({
+        type: "GAME_OVER",
+        winner: player.id
+      });
+    }
+  }
+
+  canUseBattleAction(playerId) {
+    if (this.phase !== "PLAYING") {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: "Спочатку потрібно розмістити кораблі"
+      });
+
+      return false;
+    }
+
+    if (playerId !== this.currentTurn) {
+      this.sendToPlayer(playerId, {
+        type: "ERROR",
+        message: "Зараз не ваш хід"
+      });
+
+      return false;
+    }
+
+    return true;
+  }
+
+  setCurrentTurn(playerId) {
+    this.clearTurnTimer();
+    this.currentTurn = playerId;
+
+    if (this.phase !== "PLAYING") {
+      this.turnDeadline = null;
+      return;
+    }
+
+    this.turnDeadline = Date.now() + TURN_DURATION_MS;
+    this.turnTimeout = setTimeout(() => {
+      this.handleTurnTimeout();
+    }, TURN_DURATION_MS);
+  }
+
+  clearTurnTimer() {
+    if (this.turnTimeout) {
+      clearTimeout(this.turnTimeout);
+      this.turnTimeout = null;
+    }
+  }
+
+  handleTurnTimeout() {
+    if (this.phase !== "PLAYING" || !this.currentTurn || this.players.length < 2) {
+      return;
+    }
+
+    const enemy = this.getEnemy(this.currentTurn);
+
+    if (!enemy) {
+      return;
+    }
+
+    this.setCurrentTurn(enemy.id);
+    this.broadcast({
+      type: "TURN_CHANGED",
+      reason: "timeout",
+      currentTurn: this.currentTurn,
+      turnDeadline: this.turnDeadline
+    });
+  }
+
+  getPlayer(playerId) {
+    return this.players.find(function (player) {
+      return player.id === playerId;
+    });
+  }
+
+  getEnemy(playerId) {
+    return this.players.find(function (player) {
+      return player.id !== playerId;
+    });
+  }
+
+  sendToPlayer(playerId, message) {
+    const player = this.getPlayer(playerId);
+
+    if (player) {
+      player.socket.send(JSON.stringify(message));
+    }
+  }
+
+  broadcast(message) {
+    for (const player of this.players) {
+      player.socket.send(JSON.stringify(message));
+    }
+  }
+
+  removePlayer(playerId) {
+    this.clearTurnTimer();
+    const enemy = this.getEnemy(playerId);
+
+    if (enemy) {
+      enemy.socket.send(JSON.stringify({
+        type: "ENEMY_DISCONNECTED",
+        message: "Суперник відключився"
+      }));
+    }
+
+    this.players = this.players.filter(function (player) {
+      return player.id !== playerId;
+    });
   }
 }
 
-module.exports = GameRoom;
+function createFleet() {
+  return Object.assign({}, FLEET_TEMPLATE);
+}
+
+function isFleetPlaced(remainingShips) {
+  return Object.values(remainingShips).every(function (count) {
+    return count === 0;
+  });
+}
+
+module.exports = { GameRoom };

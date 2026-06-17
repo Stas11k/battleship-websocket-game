@@ -18,13 +18,40 @@
 </head>
 
 <body>
+
     <header class="game-header">
         <h1>Морський бій</h1>
 
         <div class="scoreboard">
-            <span id="playerInfo">Гравець: -</span>
-            <span id="gameStatus">Очікування...</span>
-            <span id="connectionStatus">Не підключено</span>
+            <span id="playerLabel">Гравець: -</span>
+            <span id="turnLabel">Очікування...</span>
+            <span id="statusLabel">Підключення...</span>
+        </div>
+
+        <div class="control-panels">
+            <section id="placementPanel" class="control-card placement-panel placement-panel-disabled"
+                aria-label="Розміщення кораблів">
+                <h2 class="control-card-title">Розміщення кораблів</h2>
+
+                <div class="placement-actions">
+                    <button type="button" data-ship-size="4">4-палубний ×1</button>
+                    <button type="button" data-ship-size="3">3-палубний ×2</button>
+                    <button type="button" data-ship-size="2">2-палубний ×3</button>
+                    <button type="button" data-ship-size="1">1-палубний ×4</button>
+                    <button type="button" id="directionButton">Напрямок: горизонтально</button>
+                </div>
+            </section>
+
+            <section id="battleActions" class="control-card battle-actions battle-actions-disabled"
+                aria-label="Вибір знаряддя">
+                <h2 class="control-card-title">Вибір знаряддя</h2>
+
+                <div class="battle-action-buttons">
+                    <button type="button" id="shotButton" class="active-action-button">Постріл</button>
+                    <button type="button" id="scannerButton">Сканер 3×3 ×1</button>
+                    <button type="button" id="torpedoButton">Торпедоносець ×2</button>
+                </div>
+            </section>
         </div>
     </header>
 
@@ -34,26 +61,9 @@
             <div id="myBoard"></div>
         </section>
 
-        <section class="placement-panel">
-            <h2>Розміщення кораблів</h2>
-
-            <div class="ship-buttons">
-                <button class="ship-button" data-size="4">4-палубний</button>
-                <button class="ship-button" data-size="3">3-палубний</button>
-                <button class="ship-button" data-size="2">2-палубний</button>
-                <button class="ship-button" data-size="1">1-палубний</button>
-            </div>
-
-            <button id="directionButton" class="direction-button">
-                Напрямок: горизонтально
-            </button>
-
-            <div class="ships-left">
-                <p>4-палубні: <span id="shipsLeft4">1</span></p>
-                <p>3-палубні: <span id="shipsLeft3">2</span></p>
-                <p>2-палубні: <span id="shipsLeft2">3</span></p>
-                <p>1-палубні: <span id="shipsLeft1">4</span></p>
-            </div>
+        <section id="turnIndicator" class="turn-indicator turn-indicator-waiting" aria-label="Індикатор атаки">
+            <div id="attackArrow" class="attack-arrow attack-arrow-waiting"></div>
+            <div id="turnTimer" class="turn-timer">25</div>
         </section>
 
         <section class="board-section">

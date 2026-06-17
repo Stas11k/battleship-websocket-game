@@ -1,10 +1,12 @@
 let socket = null;
+let playerId = null;
+let gameId = null;
 
 function connectToServer() {
   socket = new WebSocket("ws://localhost:3001");
 
   socket.addEventListener("open", function () {
-    setConnectionStatus("Підключено");
+    console.log("Connected to WebSocket server");
 
     sendMessage({
       type: "JOIN_GAME"
@@ -12,26 +14,26 @@ function connectToServer() {
   });
 
   socket.addEventListener("message", function (event) {
-    try {
-      const message = JSON.parse(event.data);
-      handleServerMessage(message);
-    } catch (error) {
-      console.error("Invalid server message:", error);
-    }
+    const message = JSON.parse(event.data);
+
+    handleServerMessage(message);
   });
 
   socket.addEventListener("close", function () {
-    setConnectionStatus("Відключено");
+    console.log("Disconnected from WebSocket server");
+
+    document.querySelector("#statusLabel").innerText = "З'єднання втрачено";
   });
 
-  socket.addEventListener("error", function () {
-    setConnectionStatus("Помилка з'єднання");
+  socket.addEventListener("error", function (error) {
+    console.error("WebSocket error:", error);
+
+    document.querySelector("#statusLabel").innerText = "Помилка WebSocket-з'єднання";
   });
 }
 
 function sendMessage(message) {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
-    console.warn("Socket is not connected");
     return;
   }
 

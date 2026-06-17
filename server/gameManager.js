@@ -1,105 +1,99 @@
-const GameRoom = require("./gameRoom");
+const { GameRoom } = require("./gameRoom");
 
 class GameManager {
   constructor() {
     this.rooms = [];
-    this.playerRooms = new Map();
-  }
-
-  addPlayer(socket) {
-    socket.playerId = this.createPlayerId();
-
-    socket.send(JSON.stringify({
-      type: "CONNECTED",
-      playerId: socket.playerId
-    }));
-  }
-
-  handleMessage(socket, message) {
-    switch (message.type) {
-      case "JOIN_GAME":
-        this.joinGame(socket);
-        break;
-
-      case "PLACE_SHIP":
-      case "REMOVE_SHIP":
-      case "PLAYER_READY":
-      case "SHOT":
-        this.handleRoomMessage(socket, message);
-        break;
-
-      default:
-        socket.send(JSON.stringify({
-          type: "ERROR",
-          message: "Unknown message type"
-        }));
-        break;
-    }
-  }
-
-  handleRoomMessage(socket, message) {
-    const room = this.playerRooms.get(socket);
-
-    if (!room) {
-      socket.send(JSON.stringify({
-        type: "ERROR",
-        message: "You are not in a game room"
-      }));
-      return;
-    }
-
-    room.handleMessage(socket, message);
   }
 
   joinGame(socket) {
-    let room = this.findAvailableRoom();
+    let room = this.rooms.find(function (room) {
+      return !room.isFull();
+    });
 
     if (!room) {
       room = new GameRoom();
       this.rooms.push(room);
     }
 
-    const playerNumber = room.addPlayer(socket);
+    const player = room.addPlayer(socket);
 
-    this.playerRooms.set(socket, room);
+    socket.room = room;
+    socket.playerId = player.id;
 
     socket.send(JSON.stringify({
       type: "GAME_JOINED",
-      roomId: room.id,
-      playerNumber: playerNumber
+      gameId: room.id,
+      playerId: player.id
     }));
 
     if (room.isFull()) {
-      room.startPlacementPhase();
+      room.startGame();
     }
   }
 
-  removePlayer(socket) {
-    const room = this.playerRooms.get(socket);
+  handlePlaceShip(socket, message) {
+    const room = socket.room;
 
     if (!room) {
       return;
     }
 
-    room.removePlayer(socket);
-    this.playerRooms.delete(socket);
+    room.handlePlaceShip(socket.playerId, message.row, message.col, message.size, message.direction);
+  }
 
-    if (room.isEmpty()) {
-      this.rooms = this.rooms.filter(function (currentRoom) {
-        return currentRoom !== room;
-      });
+  handleRemoveShip(socket, message) {
+    const room = socket.room;
+
+    if (!room) {
+      return;
     }
+
+    room.handleRemoveShip(socket.playerId, message.row, message.col);
   }
 
-  findAvailableRoom() {
-    return this.rooms.find(function (room) {
-      return !room.isFull();
+  handleShot(socket, message) {
+    const room = socket.room;
+
+    if (!room) {
+      return;
+    }
+
+    room.handleShot(socket.playerId, message.row, message.col);
+  }
+
+  handleScanArea(socket, message) {
+    const room = socket.room;
+
+    if (!room) {
+      return;
+    }
+
+    room.handleScanArea(socket.playerId, message.row, message.col);
+  }
+
+  handleTorpedoBomber(socket, message) {
+    const room = socket.room;
+
+    if (!room) {
+      return;
+    }
+
+    room.handleTorpedoBomber(socket.playerId, message.row);
+  }
+
+  removePlayer(socket) {
+    const room = socket.room;
+
+    if (!room) {
+      return;
+    }
+
+    room.removePlayer(socket.playerId);
+
+    this.rooms = this.rooms.filter(function (room) {
+      return room.players.length > 0;
     });
-  }
-
-  createPlayerId() {
-    return `player-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   }
 }
 
-module.exports = GameManager;
+module.exports = { GameManager };

@@ -10,10 +10,6 @@ const BOARD_HEIGHT = 400;
 const VISIBLE_COLUMNS_COUNT = 11;
 const VISIBLE_ROWS_COUNT = 12;
 
-window.addEventListener("DOMContentLoaded", function () {
-  initBoards();
-});
-
 function prepareBoardContainer(selector) {
   const board = document.querySelector(selector);
 
@@ -125,22 +121,28 @@ function customizeBoardCell(cellBuilder, cellData) {
     cellBuilder.addClass("battle-cell-ship");
   }
 
+  if (value === "scanner-ship") {
+    cellBuilder.text = "";
+    cellBuilder.addClass("battle-cell");
+    cellBuilder.addClass("battle-cell-scanner-ship");
+  }
+
   if (value === "hit") {
     cellBuilder.text = "";
     cellBuilder.addClass("battle-cell");
     cellBuilder.addClass("battle-cell-hit");
   }
 
-  if (value === "miss") {
-    cellBuilder.text = "";
-    cellBuilder.addClass("battle-cell");
-    cellBuilder.addClass("battle-cell-miss");
-  }
-
   if (value === "sunk") {
     cellBuilder.text = "";
     cellBuilder.addClass("battle-cell");
     cellBuilder.addClass("battle-cell-sunk");
+  }
+
+  if (value === "miss") {
+    cellBuilder.text = "";
+    cellBuilder.addClass("battle-cell");
+    cellBuilder.addClass("battle-cell-miss");
   }
 
   if (value === "sunk-zone") {
@@ -231,7 +233,8 @@ function addMyBoardClickHandler() {
       return;
     }
 
-    handleMyBoardCellClick(coordinate.row, coordinate.col);
+    console.log("Place ship:", coordinate.row, coordinate.col);
+    placeShip(coordinate.row, coordinate.col);
   });
 }
 
@@ -249,6 +252,6 @@ function addEnemyBoardClickHandler() {
       return;
     }
 
-    handleEnemyBoardCellClick(coordinate.row, coordinate.col);
+    handleEnemyBoardAction(coordinate.row, coordinate.col);
   });
 }

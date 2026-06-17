@@ -36,6 +36,9 @@ function getCellState(value) {
     case "sunk-zone":
       return "sunk-zone";
 
+    case "scanner-ship":
+      return "scanner-ship";
+
     default:
       return "empty";
   }
