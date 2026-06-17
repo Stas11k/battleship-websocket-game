@@ -227,6 +227,8 @@ class GameRoom {
       col: result.col,
       result: result.result,
       sunk: result.sunk || false,
+      sunkCells: result.sunkCells || [],
+      zoneCells: result.zoneCells || [],
       currentTurn: this.currentTurn
     });
 
@@ -236,6 +238,8 @@ class GameRoom {
       col: result.col,
       result: result.result,
       sunk: result.sunk || false,
+      sunkCells: result.sunkCells || [],
+      zoneCells: result.zoneCells || [],
       currentTurn: this.currentTurn
     });
 

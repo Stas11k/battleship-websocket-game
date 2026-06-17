@@ -135,6 +135,16 @@ body {
     background: #9aa8b8 !important;
 }
 
+#myBoard .battle-cell-sunk,
+#enemyBoard .battle-cell-sunk {
+    background: #9b1c1c !important;
+}
+
+#myBoard .battle-cell-sunk-zone,
+#enemyBoard .battle-cell-sunk-zone {
+    background: #9aa8b8 !important;
+}
+
 #myBoard .battle-board-corner-cell,
 #enemyBoard .battle-board-corner-cell {
     color: transparent !important;

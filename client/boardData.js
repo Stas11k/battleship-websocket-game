@@ -30,6 +30,12 @@ function getCellState(value) {
     case "miss":
       return "miss";
 
+    case "sunk":
+      return "sunk";
+
+    case "sunk-zone":
+      return "sunk-zone";
+
     default:
       return "empty";
   }

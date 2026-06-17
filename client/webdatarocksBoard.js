@@ -136,6 +136,18 @@ function customizeBoardCell(cellBuilder, cellData) {
     cellBuilder.addClass("battle-cell");
     cellBuilder.addClass("battle-cell-miss");
   }
+
+  if (value === "sunk") {
+    cellBuilder.text = "";
+    cellBuilder.addClass("battle-cell");
+    cellBuilder.addClass("battle-cell-sunk");
+  }
+
+  if (value === "sunk-zone") {
+    cellBuilder.text = "";
+    cellBuilder.addClass("battle-cell");
+    cellBuilder.addClass("battle-cell-sunk-zone");
+  }
 }
 
 function cloneBoardData(data) {

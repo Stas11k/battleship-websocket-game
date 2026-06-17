@@ -18,7 +18,8 @@ function createBoard() {
       board[row][col] = {
         hasShip: false,
         hit: false,
-        shipId: null
+        shipId: null,
+        sunkZone: false
       };
     }
   }
@@ -128,6 +129,7 @@ function removeShip(playerState, row, col) {
     playerState.board[shipCell.row][shipCell.col].hasShip = false;
     playerState.board[shipCell.row][shipCell.col].hit = false;
     playerState.board[shipCell.row][shipCell.col].shipId = null;
+    playerState.board[shipCell.row][shipCell.col].sunkZone = false;
   }
 
   playerState.ships = playerState.ships.filter(function (currentShip) {
@@ -157,7 +159,7 @@ function checkShot(playerState, row, col) {
 
   const cell = playerState.board[row][col];
 
-  if (cell.hit) {
+  if (cell.hit || cell.sunkZone) {
     return {
       success: false,
       message: "This cell was already attacked"
@@ -172,6 +174,9 @@ function checkShot(playerState, row, col) {
       result: "miss",
       row: row,
       col: Number(col),
+      sunk: false,
+      sunkCells: [],
+      zoneCells: [],
       gameOver: false
     };
   }
@@ -182,8 +187,13 @@ function checkShot(playerState, row, col) {
 
   const sunk = isShipSunk(playerState, ship);
 
-  if (sunk) {
+  let sunkCells = [];
+  let zoneCells = [];
+
+  if (sunk && ship) {
     ship.sunk = true;
+    sunkCells = markShipAsSunk(ship);
+    zoneCells = markSunkShipZone(playerState, ship);
   }
 
   return {
@@ -193,8 +203,46 @@ function checkShot(playerState, row, col) {
     col: Number(col),
     shipId: ship ? ship.id : null,
     sunk: sunk,
+    sunkCells: sunkCells,
+    zoneCells: zoneCells,
     gameOver: areAllShipsSunk(playerState)
   };
+}
+
+function markShipAsSunk(ship) {
+  return ship.cells.map(function (cell) {
+    return {
+      row: cell.row,
+      col: cell.col
+    };
+  });
+}
+
+function markSunkShipZone(playerState, ship) {
+  const zoneMap = new Map();
+
+  for (const shipCell of ship.cells) {
+    const neighbours = getNeighbourCells(shipCell.row, shipCell.col);
+
+    for (const neighbour of neighbours) {
+      const key = `${neighbour.row}-${neighbour.col}`;
+      const boardCell = playerState.board[neighbour.row][neighbour.col];
+
+      if (boardCell.hasShip) {
+        continue;
+      }
+
+      boardCell.hit = true;
+      boardCell.sunkZone = true;
+
+      zoneMap.set(key, {
+        row: neighbour.row,
+        col: neighbour.col
+      });
+    }
+  }
+
+  return Array.from(zoneMap.values());
 }
 
 function isShipSunk(playerState, ship) {

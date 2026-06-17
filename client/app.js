@@ -118,7 +118,12 @@ function handleEnemyBoardCellClick(row, col) {
 
   const cellValue = getBoardCellValue("enemy", row, col);
 
-  if (cellValue === "hit" || cellValue === "miss") {
+  if (
+    cellValue === "hit" ||
+    cellValue === "miss" ||
+    cellValue === "sunk" ||
+    cellValue === "sunk-zone"
+  ) {
     setGameStatus("Ви вже стріляли в цю клітинку");
     return;
   }
@@ -265,7 +270,19 @@ function handleGameStarted(message) {
 function handleShotResult(message) {
   currentTurn = message.currentTurn;
 
-  updateBoardCell("enemy", message.row, message.col, message.result);
+  updateBoardCell("enemy", message.row, message.col, message.result, false);
+
+  if (message.sunk) {
+    applySunkCells("enemy", message.sunkCells);
+    applySunkZoneCells("enemy", message.zoneCells);
+  }
+
+  refreshBoard("enemy");
+
+  if (message.sunk) {
+    setGameStatus("Корабель знищено! Ваш хід ще раз");
+    return;
+  }
 
   if (message.result === "hit") {
     setGameStatus("Попадання! Ваш хід ще раз");
@@ -277,12 +294,50 @@ function handleShotResult(message) {
 function handleEnemyShot(message) {
   currentTurn = message.currentTurn;
 
-  updateBoardCell("me", message.row, message.col, message.result);
+  updateBoardCell("me", message.row, message.col, message.result, false);
+
+  if (message.sunk) {
+    applySunkCells("me", message.sunkCells);
+    applySunkZoneCells("me", message.zoneCells);
+  }
+
+  refreshBoard("me");
+
+  if (message.sunk) {
+    setGameStatus("Ваш корабель знищено. Суперник ходить ще раз");
+    return;
+  }
 
   if (message.result === "hit") {
     setGameStatus("У ваш корабель влучили. Суперник ходить ще раз");
   } else {
     setGameStatus("Суперник промахнувся. Ваш хід");
+  }
+}
+
+function applySunkCells(boardType, cells) {
+  if (!Array.isArray(cells)) {
+    return;
+  }
+
+  for (const cell of cells) {
+    updateBoardCell(boardType, cell.row, cell.col, "sunk", false);
+  }
+}
+
+function applySunkZoneCells(boardType, cells) {
+  if (!Array.isArray(cells)) {
+    return;
+  }
+
+  for (const cell of cells) {
+    const currentValue = getBoardCellValue(boardType, cell.row, cell.col);
+
+    if (currentValue === "sunk") {
+      continue;
+    }
+
+    updateBoardCell(boardType, cell.row, cell.col, "sunk-zone", false);
   }
 }
 
